@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static UnityEngine.Debug;
+using static UnityEngine.Application;
 
 namespace TimeSlip.Await
 {
@@ -229,6 +230,26 @@ namespace TimeSlip.Await
             yield return task.Result;
         }
 
+        public static Task StartTask(this MonoBehaviour mono, Action action)
+        {
+            return Task.Factory.StartNew(action);
+        }
+
+        public static Task StartTask(this MonoBehaviour mono, Action<object> action, object data)
+        {
+            return Task.Factory.StartNew(action, data);
+        }
+
+        public static Task<T> StartTask<T>(this MonoBehaviour mono, Func<T> action)
+        {
+            return Task.Factory.StartNew<T>(action);
+        }
+
+        public static Task<T> StartTask<T>(this MonoBehaviour mono, Func<object, T> action, object data)
+        {
+            return Task.Factory.StartNew<T>(action, data);
+        }
+
         /// <summary>
         /// 断言
         /// </summary>
@@ -289,7 +310,6 @@ namespace TimeSlip.Await
 
             public void GetResult()
             {
-                LogError("dasdasd1111122222");
                 Assert(_isDone);
 
                 if (_exception != null)
@@ -300,7 +320,6 @@ namespace TimeSlip.Await
 
             public void Complete(Exception e)
             {
-                LogError("dasdasd11111");
                 Assert(!_isDone);
 
                 _isDone = true;
@@ -315,7 +334,6 @@ namespace TimeSlip.Await
 
             void INotifyCompletion.OnCompleted(Action continuation)
             {
-                LogError("dasdasd");
                 Assert(_continuation == null);
                 Assert(!_isDone);
 
@@ -559,6 +577,11 @@ namespace TimeSlip.Await
         {
             gameObject.hideFlags = HideFlags.HideAndDontSave;
             DontDestroyOnLoad(gameObject);
+        }
+
+        private void OnApplicationQuit()
+        {
+            Task.Factory.CancellationToken.WaitHandle.Close();
         }
     }
 
