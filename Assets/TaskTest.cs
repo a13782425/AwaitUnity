@@ -53,9 +53,25 @@ public class TaskTest : MonoBehaviour
         }
     }
 
+    private async void Test()
+    {
+        //此语句后的代码会放在子线程执行
+        await new WaitForBackgroundThread();
+        //等待1秒。不受Scale影响
+        await new WaitForRealSeconds(1f);
+        //从主线程上拿到某个游戏物体的参数
+        Vector3 pos = await new WaitForFunc<Vector3>(() => { return ProgressPic.transform.position; });
+        //将某个参数扔到主线程做操作
+        await new WaitForAction<Vector3>((a) => { CountText.text = a.ToString(); }, pos);
+        //等待1秒。受Scale影响
+        await new WaitForSeconds(1f);
+        //此语句后的代码会放在主线程执行
+        await new WaitForUpdate();
+    }
+
     private async void GenerateNormal()
     {
-        //把计算量巨大的放在子线程
+        //将大量计算放在子线程
         await new WaitForBackgroundThread();
         Color[,] colors = new Color[1024, 1024];
         for (int i = 0; i < 1024; i++)
@@ -140,7 +156,7 @@ public class TaskTest : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        CountText.text = Time.frameCount.ToString();
+        //CountText.text = Time.frameCount.ToString();
         if (ProgressPic.gameObject.activeInHierarchy)
         {
             ProgressPic.fillAmount = _progress / _allProgress;

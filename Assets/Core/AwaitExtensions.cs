@@ -73,6 +73,57 @@ namespace TimeSlip.Await
     }
 
     /// <summary>
+    /// 把当前方法放在主线程上执行
+    /// </summary>
+    public class WaitForAction
+    {
+        private Action _action;
+
+        public Action GetAction() { return _action; }
+
+        public WaitForAction(Action action)
+        {
+            _action = action;
+        }
+    }
+
+    /// <summary>
+    /// 把当前方法放在主线程上执行
+    /// 带一个参数的
+    /// </summary>
+    public class WaitForAction<T>
+    {
+        private Action<T> _action;
+
+        public Action<T> GetAction() { return _action; }
+        private T _data;
+
+        public T GetData() { return _data; }
+        public WaitForAction(Action<T> action, T data)
+        {
+            _action = action;
+            _data = data;
+        }
+    }
+
+    /// <summary>
+    /// 把当前方法放在主线程上执行
+    /// 带一个返回值
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class WaitForFunc<T>
+    {
+        private Func<T> _func;
+
+        public Func<T> GetFunc() { return _func; }
+
+        public WaitForFunc(Func<T> func)
+        {
+            _func = func;
+        }
+    }
+
+    /// <summary>
     /// 异步 扩展方法
     /// </summary>
     public static class AwaitExtensions
@@ -194,6 +245,38 @@ namespace TimeSlip.Await
             return awaiter;
         }
 
+        public static UnityAwaiter GetAwaiter(this WaitForAction waitForAction)
+        {
+            var awaiter = new UnityAwaiter();
+            if (waitForAction.GetAction() != null)
+            {
+                RunOnUnityScheduler(waitForAction.GetAction());
+            }
+            awaiter.Complete(null);
+            return awaiter;
+        }
+
+        public static UnityAwaiter GetAwaiter<T>(this WaitForAction<T> waitForAction)
+        {
+            var awaiter = new UnityAwaiter();
+            if (waitForAction.GetAction() != null)
+            {
+                RunOnUnityScheduler(waitForAction.GetAction(), waitForAction.GetData());
+            }
+            awaiter.Complete(null);
+            return awaiter;
+        }
+
+        public static UnityAwaiter<T> GetAwaiter<T>(this WaitForFunc<T> waitForFunc)
+        {
+            var awaiter = new UnityAwaiter<T>();
+            if (waitForFunc.GetFunc() != null)
+            {
+                RunOnUnityScheduler(() => AsyncCoroutineRunner.Instance.StartCoroutine(InstructionWrappers.FuncGetReturn<T>(awaiter, waitForFunc.GetFunc())));
+            }
+            return awaiter;
+        }
+
         /// <summary>
         /// 将任务转成协程
         /// </summary>
@@ -266,7 +349,7 @@ namespace TimeSlip.Await
         /// 在主线程上执行某个方法
         /// </summary>
         /// <param name="action"></param>
-        static void RunOnUnityScheduler(Action action)
+        static void RunOnUnityScheduler(Action action, object data = null)
         {
             if (SynchronizationContext.Current == SyncContextUtil.UnitySynchronizationContext)
             {
@@ -274,7 +357,23 @@ namespace TimeSlip.Await
             }
             else
             {
-                SyncContextUtil.UnitySynchronizationContext.Post(_ => action(), null);
+                SyncContextUtil.UnitySynchronizationContext.Post(_ => action(), data);
+            }
+        }
+
+        /// <summary>
+        /// 在主线程上执行某个方法
+        /// </summary>
+        /// <param name="action"></param>
+        static void RunOnUnityScheduler<T>(Action<T> action, T data)
+        {
+            if (SynchronizationContext.Current == SyncContextUtil.UnitySynchronizationContext)
+            {
+                action(data);
+            }
+            else
+            {
+                SyncContextUtil.UnitySynchronizationContext.Post(_ => action(data), null);
             }
         }
 
@@ -537,6 +636,12 @@ namespace TimeSlip.Await
             {
                 yield return instruction;
                 awaiter.Complete(instruction, null);
+            }
+
+            public static IEnumerator FuncGetReturn<T>(UnityAwaiter<T> awaiter, Func<T> func)
+            {
+                yield return null;
+                awaiter.Complete(func(), null);
             }
 
             public static IEnumerator AssetBundleRequest(
